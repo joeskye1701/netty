@@ -329,10 +329,11 @@ public class SslHandlerTest {
                 .sslProvider(SslProvider.OPENSSL)
                 .build();
             try {
+                assertEquals(1, ((ReferenceCounted) sslContext).refCnt());
                 SSLEngine sslEngine = sslContext.newEngine(ByteBufAllocator.DEFAULT);
                 EmbeddedChannel ch = new EmbeddedChannel(new SslHandler(sslEngine));
 
-                assertEquals(1, ((ReferenceCounted) sslContext).refCnt());
+                assertEquals(2, ((ReferenceCounted) sslContext).refCnt());
                 assertEquals(1, ((ReferenceCounted) sslEngine).refCnt());
 
                 assertTrue(ch.finishAndReleaseAll());
@@ -579,6 +580,10 @@ public class SslHandlerTest {
             assertTrue(evt instanceof SslHandshakeCompletionEvent);
             assertThat(evt.cause(), is(instanceOf(SSLException.class)));
 
+            evt = (SslCompletionEvent) events.take();
+            assertTrue(evt instanceof SslCloseCompletionEvent);
+            assertThat(evt.cause(), is(instanceOf(ClosedChannelException.class)));
+
             ChannelFuture future = (ChannelFuture) events.take();
             assertThat(future.cause(), is(instanceOf(SSLException.class)));
 
@@ -588,9 +593,6 @@ public class SslHandlerTest {
             clientChannel = null;
 
             latch2.await();
-            evt = (SslCompletionEvent) events.take();
-            assertTrue(evt instanceof SslCloseCompletionEvent);
-            assertThat(evt.cause(), is(instanceOf(ClosedChannelException.class)));
             assertTrue(events.isEmpty());
         } finally {
             if (serverChannel != null) {
